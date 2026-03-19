@@ -173,30 +173,111 @@ export class DoubaoService {
     /**
      * 第三路：综合汇总并生成翻拍二创脚本
      */
-    async generateRemakeScenes(baseData: any): Promise<any> {
-        const scriptPrompt = `你是顶尖的短视频连场打编导。请基于我已经提取出的这个爆款视频核心要素：
-${JSON.stringify(baseData, null, 2)}
+    async generateRemakeScenes(baseData: any): Promise<{ scenes: any[], subtitles: any[] }> {
+        const scriptPrompt = `# 角色定义
+你是一位专业的影视编剧和分镜脚本专家，擅长将视频内容改写成专业、生动的分镜脚本和字幕。
 
-为你现在的任务是：创作一套【全新的翻拍二创视频分镜脚本】。新脚本既要继承原视频的爆款基因（情绪、结构），又要在内容上做差异化。
-请严格返回如下纯 JSON 数组格式（不要有 markdown 块）：
-[
-  {
-    "sceneIndex": 1,
-    "duration": 3,
-    "prompt": "【翻拍新脚本】镜头1的画面描述（用于给AI视频模型生成画面）",
-    "subtitle": "【翻拍新脚本】镜头1对应的旁白或台词"
-  }
-]`;
+# 任务目标
+你的任务是基于提供的视频分析和音频分析结果，生成专业的分镜脚本和对应字幕，**总时长严格控制在15秒以内**。
+
+# 工作流上下文
+- **Input**: 视频分析结果（角色、故事、画面风格等）和音频分析结果（背景音乐、音效等）
+- **Process**:
+  1. 理解视频的整体故故事内容划分 3-5 个关键镜头（不超过5个）
+  2. 为每个镜头设计专业的描述，包含画面内容、镜头运动、音效、背景音乐等
+  3. 为关键镜头生成对应的字幕文案
+  4. **严格控制总时长在15秒以内**，每个镜头时长2-5秒
+- **Output**: 结构化的分镜脚本和字幕列表
+
+# 约束与规则
+- **总时长必须控制在15秒以内**（包括所有镜头）
+- **镜头数量限制在3-5个之间**，选择最关键、最具代表性的镜头
+- 每个镜头时长2-5秒，避免过长
+- **持续时间格式必须是MM:SS-MM:SS**（如0:00-0:03），不能使用其他格式
+- **镜头编号必须是字符串格式**（如"1"、"2"、"3"），不能使用数字
+- 分镜脚本必须包含：镜头编号、画面描述、镜头运动、音效、背景音乐、持续时间等要素
+- 字幕要简洁明了，符合视频节奏和情感表达
+- 镜头切换要流畅，符合叙事逻辑
+- 音效和背景音乐要与画面内容相匹配
+- 整体风格要统一，符合视频的视觉和听觉特征
+- 确保输出格式严格符合JSON结构
+
+# 分镜脚本格式要求
+每个镜头包含以下字段：
+- 镜头编号：按顺序编号（字符串格式，如"1"、"2"、"3"）
+- 画面描述：详细描述画面内容、角色动作、场景等
+- 镜头运动：描述镜头的移动方式（固定、推、拉、摇、移、跟、俯仰等）
+- 持续时间：预估每个镜头的时长（字符串格式，MM:SS-MM:SS，如"0:00-0:03"）
+- 音效：该镜头的音效描述
+- 背景音乐：背景音乐的节奏和情绪描述
+
+# 输出格式 (仅返回纯 JSON)
+{
+  "分镜脚本": [
+    {
+      "镜头编号": "1",
+      "画面描述": "...",
+      "镜头运动": "...",
+      "持续时间": "0:00-0:03",
+      "音效": "...",
+      "背景音乐": "..."
+    }
+  ],
+  "字幕列表": [
+    {
+      "字幕序号": "1",
+      "开始时间": "0:00",
+      "结束时间": "0:03",
+      "字幕文本": "..."
+    }
+  ]
+}
+
+# 输入数据
+${JSON.stringify(baseData, null, 2)}`;
 
         const contentNodes: any[] = [{ type: 'input_text', text: scriptPrompt }];
         try {
-            // 生成衍生脚本可以使用 visualModel 也可以使用 audioModel，这里默认使用 1.6-Vision
-            const data = await this.callApiDirectly(contentNodes, this.visualModelId || "doubao-seed-1-6-vision-250815");
-            const scenes = this.parseJsonFromText(data);
-            return Array.isArray(scenes) ? scenes : [];
+            // 使用音质更好的 1.8 模型进行创作
+            const data = await this.callApiDirectly(contentNodes, this.audioModelId || "doubao-seed-1-8-241215");
+            const rawJson = this.parseJsonFromText(data);
+            
+            // 映射到内部 FormulaScene 格式
+            const scenes = (rawJson["分镜脚本"] || []).map((s: any) => ({
+                sceneIndex: s["镜头编号"],
+                prompt: s["画面描述"],
+                cameraMovement: s["镜头运动"],
+                timeRange: s["持续时间"],
+                soundEffects: s["音效"],
+                bgmDescription: s["背景音乐"],
+                duration: this.parseDurationToSeconds(s["持续时间"])
+            }));
+
+            const subtitles = (rawJson["字幕列表"] || []).map((sub: any) => ({
+                index: sub["字幕序号"],
+                startTime: sub["开始时间"],
+                endTime: sub["结束时间"],
+                text: sub["字幕文本"]
+            }));
+
+            return { scenes, subtitles };
         } catch (e) {
-            console.error("生成衍生分镜异常", e);
-            return [];
+            console.error("生成衍生分镜异常 (1.8)", e);
+            return { scenes: [], subtitles: [] };
+        }
+    }
+
+    /** 辅助函数：将 "0:00-0:03" 转换为秒数 */
+    private parseDurationToSeconds(range: string): number {
+        try {
+            const parts = range.split('-');
+            const start = parts[0].split(':').map(Number);
+            const end = parts[1].split(':').map(Number);
+            const startSec = start[0] * 60 + start[1];
+            const endSec = end[0] * 60 + end[1];
+            return Math.max(endSec - startSec, 1);
+        } catch {
+            return 3; // 默认保底 3 秒
         }
     }
 
@@ -280,14 +361,15 @@ ${JSON.stringify(baseData, null, 2)}
                 visual_style: visualResult.visual_style || "暂未识别到"
             };
 
-            console.log(`✅ 双轨提取完毕，开始利用提取数据生成二次原创分镜...`);
+            console.log(`✅ 双轨提取完毕，开始利用 1.8 创作翻拍脚本...`);
             
             // 第三步：基于完全提取准确的要素，衍生并裂变出翻拍分镜
-            const finalScenes = await this.generateRemakeScenes(combinedData);
+            const { scenes, subtitles } = await this.generateRemakeScenes(combinedData);
 
             return {
                 ...combinedData,
-                scenes: finalScenes.length > 0 ? finalScenes : this.getMockHitFormula(videoUrl).scenes
+                scenes: scenes.length > 0 ? scenes : [],
+                subtitles: subtitles.length > 0 ? subtitles : []
             };
 
         } catch (error) {
@@ -327,28 +409,30 @@ ${JSON.stringify(baseData, null, 2)}
             language_text: "亲切自然，带有一点惊喜与分享欲的语调",
             scenes: [
                 {
-                    sceneIndex: 1,
+                    sceneIndex: "1",
                     duration: 3,
+                    timeRange: "0:00-0:03",
                     prompt: "【翻拍新脚本】中景：主角在杂乱的办公桌前焦头烂额，然后突然拿出一个神秘的工作利器。背景模糊。",
-                    subtitle: "【翻拍新脚本】你是不是也经常遇到这种情况？今天教你一个连老手都不知道的隐藏技巧。"
+                    cameraMovement: "推至特写",
+                    soundEffects: "快速打字声",
+                    bgmDescription: "悬疑转欢快"
                 },
                 {
-                    sceneIndex: 2,
+                    sceneIndex: "2",
                     duration: 4,
+                    timeRange: "0:03-0:07",
                     prompt: "【翻拍新脚本】特写：手指快速在键盘和鼠标间移动，展示该利器如何行云流水般解决问题。",
-                    subtitle: "【翻拍新脚本】不要再加班了，看这个操作多丝滑。"
-                },
+                    cameraMovement: "固定",
+                    soundEffects: "键盘机械声",
+                    bgmDescription: "快节奏鼓点"
+                }
+            ],
+            subtitles: [
                 {
-                    sceneIndex: 3,
-                    duration: 8,
-                    prompt: "【翻拍新脚本】主观视角：屏幕画面变得整洁，工作瞬间完成。画面明亮清晰。",
-                    subtitle: "【翻拍新脚本】只要五行配置，立刻搞定！看到没？就是这么简单！"
-                },
-                {
-                    sceneIndex: 4,
-                    duration: 5,
-                    prompt: "【翻拍新脚本】中景：主角微笑面对镜头，做出点赞手势，旁边出现引导动画和火花特效。",
-                    subtitle: "【翻拍新脚本】学会了记得点赞收藏，下次不迷路哦！"
+                    index: "1",
+                    startTime: "0:00",
+                    endTime: "0:03",
+                    text: "还在为工作发愁吗？"
                 }
             ]
         };

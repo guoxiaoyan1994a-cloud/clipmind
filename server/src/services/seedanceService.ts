@@ -9,7 +9,7 @@ import type { HitFormula } from '../types/index.js';
 
 /** 单个分镜的生成结果 */
 export interface GeneratedClip {
-    sceneIndex: number;
+    sceneIndex: string;
     videoUrl: string;
     duration: number;
 }
@@ -43,8 +43,9 @@ export class SeedanceService {
         for (let i = 0; i < totalScenes; i++) {
             const scene = formula.scenes[i];
 
-            // 为每条分镜生成视频
-            const videoUrl = await this.generateSingleClip(scene.prompt, scene.duration);
+            // 为每条分镜生成视频 (结合镜头运动描述提升 AI 生成效果)
+            const enhancedPrompt = `${scene.prompt} --camera ${scene.cameraMovement || 'fixed'}`;
+            const videoUrl = await this.generateSingleClip(enhancedPrompt, scene.duration);
 
             clips.push({
                 sceneIndex: scene.sceneIndex,

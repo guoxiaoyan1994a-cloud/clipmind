@@ -144,12 +144,20 @@ export async function exportVideo(projectId: string) {
 
 // ─── 爆款公式类型 ────────────────────────────────────────
 export interface FormulaScene {
-    sceneIndex: number;
+    sceneIndex: string;
     duration: number;
+    timeRange: string;
     prompt: string;
-    subtitle: string;
-    visualStyle: string;
-    cameraWork: string;
+    cameraMovement: string;
+    soundEffects: string;
+    bgmDescription: string;
+}
+
+export interface FormulaSubtitle {
+    index: string;
+    startTime: string;
+    endTime: string;
+    text: string;
 }
 
 export interface HitFormula {
@@ -161,6 +169,7 @@ export interface HitFormula {
     visual_style: string;
     language_text: string;
     scenes: FormulaScene[];
+    subtitles: FormulaSubtitle[];
 }
 
 // ─── 视频生成（阶段二：Seedance） ────────────────────────

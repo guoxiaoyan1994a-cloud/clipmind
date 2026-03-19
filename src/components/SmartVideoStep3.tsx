@@ -10,8 +10,9 @@ export default function SmartVideoStep3() {
 
   const { currentProject, getProject } = useProjectStore();
   
-  // 用于编辑的剧本状态，默认初始化为空数组
+  // 用于编辑的剧本状态
   const [scenes, setScenes] = useState<any[]>([]);
+  const [subtitles, setSubtitles] = useState<any[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // 当带有 projectId 进来时，如果 store 没有同步过来，尝试重新获取项目信息
@@ -21,13 +22,12 @@ export default function SmartVideoStep3() {
     }
   }, [projectId, currentProject?.id]);
 
-  // 从 currentProject 的 result.scenes 里同步出用于预览和二次编辑的数据
+  // 同步数据
   useEffect(() => {
     if (currentProject && currentProject.result) {
       const resultData = currentProject.result as any;
-      if (resultData.scenes && Array.isArray(resultData.scenes)) {
-        setScenes(resultData.scenes);
-      }
+      if (resultData.scenes) setScenes(resultData.scenes);
+      if (resultData.subtitles) setSubtitles(resultData.subtitles);
     }
   }, [currentProject]);
 
@@ -45,7 +45,6 @@ export default function SmartVideoStep3() {
 
   const handleSave = () => {
     setEditingIndex(null);
-    // 这里未来可以调用 API 存数据库，目前仅做本地 UI 管理
   };
 
   return (
@@ -55,90 +54,110 @@ export default function SmartVideoStep3() {
         <button onClick={() => navigate(-1)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">arrow_back_ios_new</span>
         </button>
-        <h1 className="text-lg font-bold tracking-tight">确认分镜脚本</h1>
+        <h1 className="text-lg font-bold tracking-tight text-primary">专业脚本预览 (1.8版)</h1>
         <div className="flex h-10 w-10 items-center justify-center"></div>
       </header>
       
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-4">
+      <main className="flex-1 overflow-y-auto px-4 pb-40 pt-4 scroll-smooth">
         <div className="mb-6">
           <p className="text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-            我已经完全掌握了原视频的精髓，并为您重写了一套全新的翻拍脚本文案，请审阅或微调：
+            我已经使用 1.8 专家模型为您重写了高标准的分镜脚本，整体时长已严格控制在 15s 以内：
           </p>
         </div>
 
         {/* 脚本内容列表 */}
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 px-1">📽️ 视觉分镜脚本</h2>
           {scenes.map((scene, index) => (
-            <div key={index} className="rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-bold">
-                    {scene.sceneIndex || index + 1}
+            <div key={index} className="rounded-3xl bg-white dark:bg-slate-900 shadow-premium border border-slate-100 dark:border-slate-800 overflow-hidden transition-all hover:shadow-lg">
+              <div className="flex items-center justify-between px-4 py-4 bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-50 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-white text-xs font-black shadow-sm">
+                    {scene.sceneIndex}
                   </div>
-                  <span className="text-xs font-medium text-slate-500">
-                    时长: {scene.duration ? `${scene.duration}s` : '自动'}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-slate-400 leading-none mb-1">TIME RANGE</span>
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                      {scene.timeRange || '0:00-0:00'}
+                    </span>
+                  </div>
                 </div>
-                {editingIndex === index ? (
-                  <button onClick={handleSave} className="text-primary font-bold text-xs px-3 py-1 bg-primary/10 rounded-full hover:bg-primary/20 transition-colors">
-                    完成
-                  </button>
-                ) : (
-                  <button onClick={() => handleEdit(index)} className="flex items-center gap-1 text-slate-400 hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-base">edit</span>
-                    <span className="text-xs font-medium">编辑</span>
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                     {scene.cameraMovement || '固定视角'}
+                   </span>
+                   <button onClick={() => handleEdit(index)} className="p-1.5 text-slate-400 hover:text-primary transition-colors">
+                      <span className="material-symbols-outlined text-lg">settings_suggest</span>
+                   </button>
+                </div>
               </div>
               
-              <div className="p-4 space-y-4">
-                {/* 画面描述 (Prompt) */}
+              <div className="p-5 space-y-5">
+                {/* 画面描述 */}
                 <div>
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    <span className="material-symbols-outlined text-sm text-primary">videocam</span>
-                    画面分镜说明
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                    画面描述 (Prompt)
                   </h4>
                   {editingIndex === index ? (
                     <textarea 
-                      className="w-full rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-primary/30 transition-shadow min-h-[80px]"
+                      className="w-full rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 text-sm text-slate-700 dark:text-slate-200 outline-none focus:border-primary/40 transition-all min-h-[100px]"
                       value={scene.prompt || ''}
                       onChange={(e) => updateScene(index, 'prompt', e.target.value)}
-                      placeholder="描述在此镜头中需要怎样的画面..."
                     />
                   ) : (
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed border border-slate-100/50 dark:border-slate-700/50">
-                      {scene.prompt || '暂无画面描述'}
-                    </div>
+                    <p className="text-[14px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                      {scene.prompt}
+                    </p>
                   )}
                 </div>
 
-                {/* 旁白/配音台词 */}
-                <div>
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    <span className="material-symbols-outlined text-sm text-blue-500">mic</span>
-                    口播配音台词
-                  </h4>
-                  {editingIndex === index ? (
-                    <textarea 
-                      className="w-full rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/30 transition-shadow min-h-[60px]"
-                      value={scene.subtitle || ''}
-                      onChange={(e) => updateScene(index, 'subtitle', e.target.value)}
-                      placeholder="输入将要展示的字幕/旁白..."
-                    />
-                  ) : (
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3 text-sm text-slate-600 dark:text-slate-400 leading-relaxed border border-slate-100/50 dark:border-slate-700/50 relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/20"></div>
-                      <span className="font-medium">"{scene.subtitle || '（无台词）'}"</span>
+                {/* 音效 & 音乐 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl bg-orange-50/50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600 dark:text-orange-400 mb-1">
+                      <span className="material-symbols-outlined text-sm">surround_sound</span>
+                      音效设计
                     </div>
-                  )}
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">{scene.soundEffects || '默认环境音'}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1">
+                      <span className="material-symbols-outlined text-sm">music_note</span>
+                      背景音乐
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400">{scene.bgmDescription || '自动配乐'}</p>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
-          {scenes.length === 0 && (
-             <div className="py-10 text-center text-slate-500 text-sm">暂无生成的创意脚本内容</div>
-          )}
+
+          {/* 字幕列表列表 */}
+          <div className="mt-10 pt-6 border-t border-slate-100 dark:border-slate-800">
+            <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 px-1 mb-4">💬 语音字幕列表</h2>
+            <div className="bg-slate-50 dark:bg-slate-800/30 rounded-[32px] p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+              {subtitles.map((sub, idx) => (
+                <div key={idx} className="flex gap-4 group">
+                  <div className="flex flex-col items-center">
+                    <div className="text-[10px] font-black text-primary p-1">{sub.startTime}</div>
+                    <div className="flex-1 w-0.5 bg-slate-200 dark:bg-slate-700 opacity-50 group-last:hidden"></div>
+                  </div>
+                  <div className="flex-1 pb-4">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-700 group-hover:border-primary/30 transition-colors">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-snug">
+                        {sub.text}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {subtitles.length === 0 && (
+                <p className="text-center text-xs text-slate-400 py-4 italic">点击重试重新生成字幕内容</p>
+              )}
+            </div>
+          </div>
         </div>
       </main>
 
