@@ -37,15 +37,20 @@ export default function SmartVideoStep1() {
     }
 
     if (currentTaskId && (taskStatus === 'analyzing' || taskStatus === 'exporting' || taskStatus === 'pending')) {
-      pollTask(currentTaskId, () => {
-        // UI上已经有各种 “提取中...” 的默认文案，这里后台去刷就好
-      }).then(() => {
+      console.log(`[FRONTEND] 🚀 Starting polling for task: ${currentTaskId}`);
+      pollTask(currentTaskId, (task) => {
+        console.log(`[FRONTEND] 📊 Task Progress Update: ${task.progress}%, Status: ${task.status}`);
+        if (task.result) {
+          console.log(`[FRONTEND] 📦 Partial Result Received:`, Object.keys(task.result));
+        }
+      }).then((finalTask) => {
+        console.log(`[FRONTEND] ✅ Task Completed:`, finalTask.taskId);
         // 提取完毕，给用户展示 1.5 秒钟真实数据，自动飞入 Step 3 (创意生成页)
         setTimeout(() => {
           navigate('/smart-video-3', { state: { url, projectId } });
         }, 1500);
       }).catch((err) => {
-        console.error('分析过程中断或失败:', err);
+        console.error('[FRONTEND] ❌ 分析过程中断或失败:', err);
       });
     }
   }, [currentTaskId, url, projectId, taskStatus, navigate, pollTask, analyzeVideo]);
@@ -53,6 +58,7 @@ export default function SmartVideoStep1() {
   // 从项目中初始化或者覆盖 Sections
   useEffect(() => {
     if (currentProject && currentProject.result) {
+      console.log(`[FRONTEND] 🔄 Syncing Sections from currentProject.result:`, Object.keys(currentProject.result));
       const res = currentProject.result as any;
       setSections(prev => ({
         ...prev,

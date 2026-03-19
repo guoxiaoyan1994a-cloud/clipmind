@@ -89,6 +89,7 @@ export class AnalyzeService {
 
         // 阶段 0/4：解析短链接/提取直链（针对抖音等）
         if (videoUrl.includes('douyin.com')) {
+            console.log(`[TASKOPS] Task ${taskId}: Handling Douyin link extraction...`);
             await taskRepository.updateStatus(taskId, {
                 status: 'processing',
                 progress: 5,
@@ -96,26 +97,30 @@ export class AnalyzeService {
             try {
                 const info = await douyinParser.parse(videoUrl);
                 finalVideoUrl = info.videoUrl;
+                console.log(`[TASKOPS] Task ${taskId}: Douyin link extracted.`);
             } catch (err) {
                 console.warn('⚠️ 抖音解析失败，尝试使用原链接继续:', err);
             }
         }
 
         try {
-            // 如果未配置 API Key，直接走 Mock 流程（但也要分步以展示效果）
+            // 如果未配置 API Key，直接走 Mock 流程
             if (!process.env.ARK_API_KEY) {
-                console.warn('⚠️ ARK_API_KEY 未配置，执行分步 Mock 分析流程');
+                console.log(`[TASKOPS] Task ${taskId}: No ARK_API_KEY, entering MOCK flow.`);
                 
                 // 模拟音频解析
                 await taskRepository.updateStatus(taskId, { status: 'processing', progress: 20 });
+                console.log(`[TASKOPS] Task ${taskId}: Mock Audio stage starting...`);
                 await new Promise(r => setTimeout(r, 1000));
                 currentResult = {
                     background_music: "轻快活泼的夏日电子节奏 (Mock)",
                     sound_effects: "转场Swish音效、系统提示金币掉落音 (Mock)"
                 };
                 await taskRepository.updateStatus(taskId, { status: 'processing', progress: 40, result: currentResult });
+                console.log(`[TASKOPS] Task ${taskId}: Mock Audio stage updated.`);
 
                 // 模拟视觉解析
+                console.log(`[TASKOPS] Task ${taskId}: Mock Visual stage starting...`);
                 await taskRepository.updateStatus(taskId, { status: 'processing', progress: 60 });
                 await new Promise(r => setTimeout(r, 1500));
                 currentResult = {
@@ -127,9 +132,11 @@ export class AnalyzeService {
                     language_text: "亲切自然，带有一点惊喜与分享欲的语调 (Mock)"
                 };
                 await taskRepository.updateStatus(taskId, { status: 'processing', progress: 80, result: currentResult });
+                console.log(`[TASKOPS] Task ${taskId}: Mock Visual stage updated.`);
 
                 // 模拟生成
                 await new Promise(r => setTimeout(r, 1000));
+                console.log(`[TASKOPS] Task ${taskId}: Completing Mock task.`);
                 await taskRepository.updateStatus(taskId, {
                     status: 'completed',
                     progress: 100,
@@ -144,6 +151,7 @@ export class AnalyzeService {
             }
 
             // 真实 API 分步流程
+            console.log(`[TASKOPS] Task ${taskId}: Starting REAL analysis flow.`);
             // 1. 抽帧
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 10 });
             const ext = finalVideoUrl.split('?')[0].toLowerCase().split('.').pop();
@@ -151,18 +159,23 @@ export class AnalyzeService {
             let imagesToAnalyze: string[] = isImage ? [finalVideoUrl] : await doubaoService.extractFramesAndConvertToBase64(finalVideoUrl, 5);
 
             // 2. 音频解析
+            console.log(`[TASKOPS] Task ${taskId}: Audio analysis starting...`);
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 20 });
             const audioResult = await doubaoService.analyzeAudioTrack(imagesToAnalyze);
             currentResult = { ...currentResult, ...audioResult };
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 40, result: currentResult });
+            console.log(`[TASKOPS] Task ${taskId}: Audio analysis updated.`);
 
             // 3. 视觉解析
+            console.log(`[TASKOPS] Task ${taskId}: Visual analysis starting...`);
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 50 });
             const visualResult = await doubaoService.analyzeVisualFrames(imagesToAnalyze);
             currentResult = { ...currentResult, ...visualResult };
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 75, result: currentResult });
+            console.log(`[TASKOPS] Task ${taskId}: Visual analysis updated.`);
 
             // 4. 生成分镜
+            console.log(`[TASKOPS] Task ${taskId}: Scene generation starting...`);
             await taskRepository.updateStatus(taskId, { status: 'processing', progress: 85 });
             const finalScenes = await doubaoService.generateRemakeScenes(currentResult);
 
@@ -175,12 +188,17 @@ export class AnalyzeService {
                     scenes: finalScenes
                 },
             });
+            console.log(`[TASKOPS] Task ${taskId}: Successfully completed.`);
         } catch (err) {
-            console.error('豆包大模型分析失败:', err);
-            await taskRepository.updateStatus(taskId, {
-                status: 'failed',
-                error_message: err instanceof Error ? err.message : '视频分析失败，请重试',
-            });
+            console.error(`[TASKOPS] Error in task ${taskId}:`, err);
+            try {
+                await taskRepository.updateStatus(taskId, {
+                    status: 'failed',
+                    error_message: err instanceof Error ? err.message : '视频分析失败，请重试',
+                });
+            } catch (updateErr) {
+                console.error(`[TASKOPS] CRITICAL: Failed to update failure status for task ${taskId}:`, updateErr);
+            }
         }
     }
 }
