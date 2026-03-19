@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useProjectStore } from '../services/projectStore';
 
@@ -29,19 +29,28 @@ export default function SmartVideoStep1() {
     }
   }, [projectId, currentProject?.id]);
 
-  // 如果有正在进行的任务，或者刚刚进入需要开始任务，则开启轮询
+  // 记录已经启动轮询的任务ID，防止 useEffect 重复触发导致轮询爆炸
+  const pollingTaskIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    // 如果这是新起的分析任务（在 CreatorCenter 点击解析过来的）
+    // 1. 发起分析任务（仅在初次进入且状态为 idle 时）
     if (url && projectId && taskStatus === 'idle') {
+      console.log('[FRONTEND] 🎯 Initializing analysis task...');
       analyzeVideo(projectId, url).catch(console.error);
     }
 
-    if (currentTaskId && (taskStatus === 'analyzing' || taskStatus === 'exporting' || taskStatus === 'pending')) {
-      console.log(`[FRONTEND] 🚀 Starting polling for task: ${currentTaskId}`);
+    // 2. 只有当任务 ID 出现，且我们还没开始轮询该 ID 时，才启动轮询
+    if (currentTaskId && 
+        (taskStatus === 'analyzing' || taskStatus === 'exporting' || taskStatus === 'pending') &&
+        pollingTaskIdRef.current !== currentTaskId) {
+      
+      console.log(`[FRONTEND] 🚀 Starting SINGLE polling instance for task: ${currentTaskId}`);
+      pollingTaskIdRef.current = currentTaskId;
+
       pollTask(currentTaskId, (task) => {
-        console.log(`[FRONTEND] 📊 Task Progress Update: ${task.progress}%, Status: ${task.status}`);
-        if (task.result) {
-          console.log(`[FRONTEND] 📦 Partial Result Received:`, Object.keys(task.result));
+        // 进度更新日志，现在应该只有一条流在跑
+        if (task.progress % 10 === 0) {
+          console.log(`[FRONTEND] 📊 Task Progress Update: ${task.progress}%, Status: ${task.status}`);
         }
       }).then((finalTask) => {
         console.log(`[FRONTEND] ✅ Task Completed:`, finalTask.taskId);
@@ -51,6 +60,7 @@ export default function SmartVideoStep1() {
         }, 1500);
       }).catch((err) => {
         console.error('[FRONTEND] ❌ 分析过程中断或失败:', err);
+        pollingTaskIdRef.current = null; // 允许重试
       });
     }
   }, [currentTaskId, url, projectId, taskStatus, navigate, pollTask, analyzeVideo]);

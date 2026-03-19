@@ -239,7 +239,7 @@ export async function getTaskStatus(taskId: string) {
 export async function pollTaskStatus(
     taskId: string,
     onProgress?: (task: TaskStatusData) => void,
-    intervalMs = 2000
+    intervalMs = 3000
 ): Promise<TaskStatusData> {
     return new Promise((resolve, reject) => {
         const timer = setInterval(async () => {
