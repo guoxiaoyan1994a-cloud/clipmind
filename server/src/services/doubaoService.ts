@@ -25,13 +25,15 @@ interface ArkChatResponse {
 
 export class DoubaoService {
     private apiKey: string | undefined;
-    private modelId: string | undefined;
+    private visualModelId: string | undefined;
+    private audioModelId: string | undefined;
     // 火山引擎 Ark API 基础地址（使用 OpenAI 兼容的 chat/completions端点）
     private readonly baseUrl = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
 
     constructor() {
         this.apiKey = process.env.ARK_API_KEY;
-        this.modelId = process.env.ARK_MODEL_ID;
+        this.visualModelId = process.env.ARK_VISUAL_MODEL_ID;
+        this.audioModelId = process.env.ARK_AUDIO_MODEL_ID;
     }
 
     /**
@@ -98,31 +100,35 @@ export class DoubaoService {
         // 为了架构上完成双轨双馈，我们这里将用户的 Coze 语音 Prompt 发送给已有的多模态/文本模型，
         // 配合抽取的画面帧（代替真实的听觉），让它尽可能猜测或我们暂时返回占位，直到配置真实音频端点。
         const audioPrompt = `# 角色定义
-你是一位专业的音频分析专家，擅长识别和分析视频中的音乐和音效。
+你是一位专业的音频理解专家，擅长从多模态输入中分析视频的【背景音乐】、【音效特征】以及【人声/语音文案】。
 
 # 任务目标
-你的任务是根据视频画面，尽力推测或分析视频的背景音乐和音效特征。
+请分析提供的视频特征，提取以下三项内容：
+1. 背景音乐：描述风格、情绪、节奏。
+2. 音效：描述环境音、特殊效果音、转场音。
+3. 语音文案：视频中人物所说的话（非字幕，而是人声语音内容）。
 
 # 约束与规则
-- 如果某些元素无法识别，标记为"未检测到"
-- 描述要具体，不要使用模糊的词汇
-- 必须严格返回如下格式的纯 JSON 对象（不要包含markdown代码块标记）：
+- 如果无法确定，标记为 "暂未识别到"
+- 必须严格返回如下格式的纯 JSON 对象：
 {
-  "background_music": "背景音乐描述（风格、节奏、情绪等）",
-  "sound_effects": "音效描述（环境音、动作音效、转场音效等）"
+  "background_music": "...",
+  "sound_effects": "...",
+  "language_text": "..."
 }`;
 
         const contentNodes: any[] = images.map(img => ({ type: 'input_image', image_url: img }));
         contentNodes.push({ type: 'input_text', text: audioPrompt });
 
         try {
-            const data = await this.callApiDirectly(contentNodes);
+            const data = await this.callApiDirectly(contentNodes, this.audioModelId || "doubao-seed-1-8-241215");
             return this.parseJsonFromText(data);
         } catch (e) {
-            console.error("音频分支分析失败，采用安全回退", e);
+            console.error("音频分支 (Seed-1.8) 分析失败，采用安全回退", e);
             return {
                 background_music: "快节奏电子混音（推测）",
-                sound_effects: "转场Swish音效、系统提示音（推测）"
+                sound_effects: "转场音效（推测）",
+                language_text: "暂未识别到语音内容"
             };
         }
     }
@@ -132,32 +138,34 @@ export class DoubaoService {
      */
     async analyzeVisualFrames(images: string[]): Promise<any> {
         const visualPrompt = `# 角色定义
-你是一位专业的短视频内容分析专家，擅长从视频中提取和整理各类内容信息。
+你是一位专业的视频视觉分析专家，擅长从画面中提取深层信息。
 
 # 任务目标
-你的任务是分析提供的短视频截图，全面提取视频中的关键信息，包括角色设定、故事梗概、字幕文案、画面风格和语言文案。
+请分析视频截图，提取以下四项视觉和内容要素：
+1. 角色设定：视频中人物的外貌、性格、人设特征。
+2. 故事梗概：视频所表达的核心故事情节描述。
+3. 字幕文案：画面中出现的文本、标题、装饰性的字幕内容。
+4. 画面风格：视频的色调、构图、美术风格。
 
 # 约束与规则
-- 保持客观和准确，不要添加视频中不存在的内容
-- 如果某些信息无法识别，标记为"未检测到"
-- 所有文本内容保持原始语言
-- 必须严格返回如下格式的纯 JSON 对象（不要包含markdown代码块标记）：
+- 如果无法确定，标记为 "暂未识别到"
+- 必须严格返回如下格式的纯 JSON 对象：
 {
-  "role_setting": "角色设定描述",
-  "story_summary": "故事梗概描述",
-  "subtitle_text": "字幕文案内容",
-  "visual_style": "画面风格描述",
-  "language_text": "语言文案内容"
+  "role_setting": "...",
+  "story_summary": "...",
+  "subtitle_text": "...",
+  "visual_style": "..."
 }`;
 
         const contentNodes: any[] = images.map(img => ({ type: 'input_image', image_url: img }));
         contentNodes.push({ type: 'input_text', text: visualPrompt });
 
         try {
-            const data = await this.callApiDirectly(contentNodes);
+            // 视觉分析强力使用 1.6-Vision
+            const data = await this.callApiDirectly(contentNodes, this.visualModelId || "doubao-seed-1-6-vision-250815");
             return this.parseJsonFromText(data);
         } catch (e) {
-            console.error("画面分支分析失败，抛出异常", e);
+            console.error("画面分支 (1.6-Vision) 分析失败", e);
             throw e;
         }
     }
@@ -182,7 +190,8 @@ ${JSON.stringify(baseData, null, 2)}
 
         const contentNodes: any[] = [{ type: 'input_text', text: scriptPrompt }];
         try {
-            const data = await this.callApiDirectly(contentNodes);
+            // 生成衍生脚本可以使用 visualModel 也可以使用 audioModel，这里默认使用 1.6-Vision
+            const data = await this.callApiDirectly(contentNodes, this.visualModelId || "doubao-seed-1-6-vision-250815");
             const scenes = this.parseJsonFromText(data);
             return Array.isArray(scenes) ? scenes : [];
         } catch (e) {
@@ -194,9 +203,9 @@ ${JSON.stringify(baseData, null, 2)}
     /**
      * 基础 HTTP 发送通道
      */
-    private async callApiDirectly(contentNodes: any[]): Promise<string> {
+    private async callApiDirectly(contentNodes: any[], targetModelId: string): Promise<string> {
         const requestBody = {
-            model: this.modelId || "doubao-seed-1-6-vision-250815",
+            model: targetModelId,
             input: [ { role: 'user', content: contentNodes } ]
         };
 
@@ -262,13 +271,13 @@ ${JSON.stringify(baseData, null, 2)}
 
             // 汇总两者的解构产出
             const combinedData = {
-                background_music: audioResult.background_music || "未检测到",
-                sound_effects: audioResult.sound_effects || "未检测到",
-                role_setting: visualResult.role_setting || "未检测到",
-                story_summary: visualResult.story_summary || "未检测到",
-                subtitle_text: visualResult.subtitle_text || "未检测到",
-                visual_style: visualResult.visual_style || "未检测到",
-                language_text: visualResult.language_text || "未检测到"
+                background_music: audioResult.background_music || "暂未识别到",
+                sound_effects: audioResult.sound_effects || "暂未识别到",
+                language_text: audioResult.language_text || "暂未识别到", // 现在由音频(1.8)总结
+                role_setting: visualResult.role_setting || "暂未识别到",
+                story_summary: visualResult.story_summary || "暂未识别到",
+                subtitle_text: visualResult.subtitle_text || "暂未识别到",
+                visual_style: visualResult.visual_style || "暂未识别到"
             };
 
             console.log(`✅ 双轨提取完毕，开始利用提取数据生成二次原创分镜...`);
