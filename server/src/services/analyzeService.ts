@@ -7,6 +7,7 @@
 import { projectRepository } from '../repositories/projectRepository.js';
 import { taskRepository } from '../repositories/taskRepository.js';
 import { doubaoService } from './doubaoService.js';
+import { douyinParser } from '../utils/douyinParser.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 export class AnalyzeService {
@@ -83,7 +84,23 @@ export class AnalyzeService {
      * 分阶段推进进度，最终输出包含"爆款公式"的完整结果
      */
     private async analyzeWithDoubao(taskId: string, videoUrl: string): Promise<void> {
-        // 阶段 1/3：提取音频与台词（模拟）
+        let finalVideoUrl = videoUrl;
+
+        // 阶段 0/4：解析短链接/提取直链（针对抖音等）
+        if (videoUrl.includes('douyin.com')) {
+            await taskRepository.updateStatus(taskId, {
+                status: 'processing',
+                progress: 5,
+            });
+            try {
+                const info = await douyinParser.parse(videoUrl);
+                finalVideoUrl = info.videoUrl;
+            } catch (err) {
+                console.warn('⚠️ 抖音解析失败，尝试使用原链接继续:', err);
+            }
+        }
+
+        // 阶段 1/4：提取音频与台词（模拟）
         await taskRepository.updateStatus(taskId, {
             status: 'processing',
             progress: 20,
@@ -91,7 +108,7 @@ export class AnalyzeService {
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // 阶段 2/3：分析视觉风格与卡点（模拟）
+        // 阶段 2/4：分析视觉风格与卡点（模拟）
         await taskRepository.updateStatus(taskId, {
             status: 'processing',
             progress: 50,
@@ -99,14 +116,14 @@ export class AnalyzeService {
 
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // 阶段 3/3：调用豆包大模型生成爆款公式
+        // 阶段 3/4：调用豆包大模型生成爆款公式
         await taskRepository.updateStatus(taskId, {
             status: 'processing',
             progress: 80,
         });
 
         try {
-            const hitFormula = await doubaoService.analyzeHitVideo(videoUrl);
+            const hitFormula = await doubaoService.analyzeHitVideo(finalVideoUrl);
 
             // 成功后，将从大模型获取到的全量公式（六要素+翻拍分镜）存入 task result 中
             await taskRepository.updateStatus(taskId, {

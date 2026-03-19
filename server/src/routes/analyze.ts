@@ -20,24 +20,9 @@ router.post(
                 return;
             }
 
-            let finalVideoUrl = videoUrl;
-
-            // 识别抖音链接并解析为无水印直链
-            if (videoUrl.includes('douyin.com')) {
-                try {
-                    const info = await douyinParser.parse(videoUrl);
-                    finalVideoUrl = info.videoUrl;
-                    console.log(`✅ 成功提取抖音直链: ${finalVideoUrl.substring(0, 50)}...`);
-                } catch (error) {
-                    const msg = error instanceof Error ? error.message : '未知错误';
-                    res.sendError(`抖音链接解析失败: ${msg}`, 400);
-                    return;
-                }
-            }
-
             const result = await analyzeService.analyzeVideo(
                 projectId,
-                finalVideoUrl,
+                videoUrl,
                 req.userId!
             );
 
