@@ -74,43 +74,48 @@ export class SeedanceService {
         }
 
         try {
-            console.log(`🎬 发起 Seedance 2.0 生成请求: "${prompt.slice(0, 30)}..." (${duration}s)`);
+            console.log(`🎬 发起 Seedance 高级生成请求: "${prompt.slice(0, 30)}..." (${duration}s)`);
             
+            // 构造符合火山引擎最新规范的 Content 结构
+            // 支持图生视频/文生视频的统一结构
+            const contentBody: any[] = [
+                {
+                    type: "text",
+                    text: `${prompt} --duration ${duration} --camerafixed false --watermark false`
+                }
+            ];
+
             // 1. 提交生成任务
-            const submitResponse = await fetch('https://ark.cn-beijing.volces.com/api/v3/video_generation', {
+            const submitResponse = await fetch('https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: this.endpointId,
-                    prompt: prompt,
-                    render_config: {
-                        duration: Math.min(Math.max(duration, 4), 15), // Seedance 支持 4-15s
-                        fps: 30
-                    }
+                    model: this.endpointId, // 使用您在 .env 中填写的模型 ID 或推理终端 ID
+                    content: contentBody
                 }),
             });
 
             if (!submitResponse.ok) {
-                const errorData = await submitResponse.json();
-                throw new Error(`Seedance 任务提交失败: ${JSON.stringify(errorData)}`);
+                const errorText = await submitResponse.text();
+                throw new Error(`Seedance 任务提交失败: ${errorText}`);
             }
 
             const resData = await submitResponse.json() as any;
             const volcTaskId = resData.id;
             console.log(`📡 Seedance 任务已创建, ID: ${volcTaskId}`);
 
-            // 2. 轮询任务状态 (最大等待 5 分钟)
+            // 2. 轮询任务状态 (建议 6 秒以上查一次)
             let attempts = 0;
-            const maxAttempts = 60; // 60 * 5s = 5 min
+            const maxAttempts = 100; 
             
             while (attempts < maxAttempts) {
-                await new Promise(r => setTimeout(r, 5000)); // 每 5 秒查一次
+                await new Promise(r => setTimeout(r, 6000));
                 attempts++;
 
-                const statusResponse = await fetch(`https://ark.cn-beijing.volces.com/api/v3/video_generation/tasks/${volcTaskId}`, {
+                const statusResponse = await fetch(`https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/${volcTaskId}`, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${this.apiKey}`,
@@ -123,20 +128,23 @@ export class SeedanceService {
                 const status = taskInfo.status;
 
                 if (status === 'succeeded') {
-                    const videoUrl = taskInfo.video_results?.[0]?.url;
-                    console.log(`✅ Seedance 任务完成! URL: ${videoUrl}`);
-                    return videoUrl;
+                    // 最新 API 的结果通常在 output.video_url 中
+                    const videoUrl = taskInfo.output?.video_url || taskInfo.video_results?.[0]?.url;
+                    if (videoUrl) {
+                        console.log(`✅ Seedance 任务完成! URL: ${videoUrl}`);
+                        return videoUrl;
+                    }
                 } else if (status === 'failed') {
-                    throw new Error(`Seedance 生成失败: ${taskInfo.failure_reason || '未知原因'}`);
+                    throw new Error(`Seedance 生成失败: ${taskInfo.failure_reason || taskInfo.error_message || '未知异常'}`);
                 }
                 
-                console.log(`⏳ Seedance 任务生成中 (${status})... [${attempts}/${maxAttempts}]`);
+                console.log(`⏳ Seedance 视频生成中 (${status})... [尝试 ${attempts}]`);
             }
 
             throw new Error('Seedance 生成任务超时');
 
         } catch (error) {
-            console.error('❌ Seedance API 调用出错:', error);
+            console.error('❌ Seedance API 调用失败:', error);
             return this.mockGenerateClip(prompt, duration);
         }
     }
