@@ -11,22 +11,16 @@ if (!fs.existsSync(envPath)) {
 
 dotenv.config({ path: envPath });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY!;
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!supabaseUrl || !supabaseKey) {
     console.error('❌ Missing Supabase credentials in .env');
-    console.log('Current Env:', { supabaseUrl, hasKey: !!supabaseServiceKey });
-    // Print all env keys for debugging (mask values)
-    Object.keys(process.env).forEach(key => {
-        if (key.includes('SUPABASE') || key.includes('VITE')) {
-             console.log(`${key}: ${process.env[key] ? 'SET' : 'EMPTY'}`);
-        }
-    });
+    console.log('Current Env:', { supabaseUrl, hasKey: !!supabaseKey });
     process.exit(1);
 }
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
 async function main() {
     console.log('--- 🔍 Checking Latest Tasks ---');
@@ -43,6 +37,7 @@ async function main() {
             id: t.id.substring(0, 8),
             status: t.status,
             progress: t.progress,
+            error: t.error_message || '',
             result_keys: t.result ? Object.keys(t.result).join(', ') : 'null',
             updated: t.updated_at
         })));

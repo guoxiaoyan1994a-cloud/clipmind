@@ -36,13 +36,13 @@ export class AnalyzeService {
             progress: 0,
         });
 
-        // 向外部 Worker 发送分析请求（异步，不等待结果）
-        this.sendToWorker(task.id, videoUrl).catch((err) => {
-            console.error('❌ 发送分析任务到 Worker 失败:', err);
+        // 本地执行 AI 分析流（内部包含抽帧、音视频解析等）
+        this.analyzeWithDoubao(task.id, videoUrl).catch((err) => {
+            console.error('❌ 启动异步分析任务失败:', err);
             // 将任务标记为失败
             taskRepository.updateStatus(task.id, {
                 status: 'failed',
-                error_message: '无法连接到视频处理服务',
+                error_message: '系统繁忙，分析请求未进入队列',
             });
         });
 
