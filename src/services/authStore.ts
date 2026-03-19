@@ -201,7 +201,10 @@ export const useAuthStore = create<AuthState>()(
             initAuth: () => {
                 if (!isSupabaseConfigured || !supabase) return;
 
+                console.log('[AUTH] 🚀 Initializing Auth listeners...');
                 supabase.auth.onAuthStateChange((event, session) => {
+                    console.log(`[AUTH] 🔔 Auth Event: ${event}`, session ? 'Session exists' : 'No session');
+                    
                     if (event === 'SIGNED_IN' && session) {
                         const supaUser = session.user;
                         set({
@@ -216,13 +219,20 @@ export const useAuthStore = create<AuthState>()(
                             isAuthenticated: true,
                         });
                     } else if (event === 'SIGNED_OUT') {
+                        // 防御性检查：如果是内置管理员账号，忽略 Supabase 的 SIGNED_OUT 事件
+                        // 因为管理员账号并不存在于真实的 Supabase Auth 中
+                        const currentState = useAuthStore.getState();
+                        if (currentState.user?.phone === 'admin') {
+                            console.log('[AUTH] 🛡️ Ignoring SIGNED_OUT event for built-in admin.');
+                            return;
+                        }
+
                         set({
                             user: null,
                             token: null,
                             isAuthenticated: false,
                         });
                     } else if (event === 'TOKEN_REFRESHED' && session) {
-                        // Token 自动刷新时更新本地缓存
                         set({ token: session.access_token });
                     }
                 });

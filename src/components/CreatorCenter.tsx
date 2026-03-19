@@ -22,8 +22,10 @@ export default function CreatorCenter() {
 
   /** 解析链接或上传视频后导航到下一步 */
   const handleParse = async () => {
+    console.log('[DEBUG] handleParse clicked. isAuthenticated:', isAuthenticated);
     // 未登录时跳转登录页
     if (!isAuthenticated) {
+      console.warn('[DEBUG] Not authenticated, redirecting to /login');
       navigate('/login');
       return;
     }
