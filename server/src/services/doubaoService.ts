@@ -36,11 +36,8 @@ export class DoubaoService {
 
     /**
      * 将视频抽帧并转换为 Base64 数组
-     * @param videoUrl 视频地址（远端或本地文件）
-     * @param frameCount 抽取的帧数
-     * @returns Base64 格式的图片数组
      */
-    private async extractFramesAndConvertToBase64(videoUrl: string, frameCount: number = 5): Promise<string[]> {
+    async extractFramesAndConvertToBase64(videoUrl: string, frameCount: number = 5): Promise<string[]> {
         return new Promise((resolve, reject) => {
             console.log(`🎬 准备从视频中抽取 ${frameCount} 帧...`);
             const tempDir = '/tmp/clipmind-frames';
@@ -94,9 +91,9 @@ export class DoubaoService {
     }
 
     /**
-     * 第一路：分析音频轨道与声效（模拟 Coze 中的 doubao-seed-1.8 音频工作流）
+     * 第一路：分析音频轨道与声效
      */
-    private async analyzeAudioTrack(images: string[]): Promise<any> {
+    async analyzeAudioTrack(images: string[]): Promise<any> {
         // 注：目前后端缺少直接的火山音频语音理解(ASR)端点。
         // 为了架构上完成双轨双馈，我们这里将用户的 Coze 语音 Prompt 发送给已有的多模态/文本模型，
         // 配合抽取的画面帧（代替真实的听觉），让它尽可能猜测或我们暂时返回占位，直到配置真实音频端点。
@@ -131,9 +128,9 @@ export class DoubaoService {
     }
 
     /**
-     * 第二路：视觉多模态分析（模拟 Coze 中的 doubao-seed-1-6-vision 视觉工作流）
+     * 第二路：视觉多模态分析
      */
-    private async analyzeVisualFrames(images: string[]): Promise<any> {
+    async analyzeVisualFrames(images: string[]): Promise<any> {
         const visualPrompt = `# 角色定义
 你是一位专业的短视频内容分析专家，擅长从视频中提取和整理各类内容信息。
 
@@ -168,7 +165,7 @@ export class DoubaoService {
     /**
      * 第三路：综合汇总并生成翻拍二创脚本
      */
-    private async generateRemakeScenes(baseData: any): Promise<any> {
+    async generateRemakeScenes(baseData: any): Promise<any> {
         const scriptPrompt = `你是顶尖的短视频连场打编导。请基于我已经提取出的这个爆款视频核心要素：
 ${JSON.stringify(baseData, null, 2)}
 

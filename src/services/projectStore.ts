@@ -178,6 +178,21 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     pollTask: async (taskId, onProgress) => {
         return api.pollTaskStatus(taskId, (task) => {
             set({ taskProgress: task.progress, taskStatus: task.status });
+            
+            // 核心改进：即使任务未完成，也把最新的中间结果同步到当前项目中，实现分步展示
+            const currentProject = get().currentProject;
+            if (task.result && currentProject) {
+                set({
+                    currentProject: {
+                        ...currentProject,
+                        result: {
+                            ...(currentProject.result || {}),
+                            ...task.result
+                        }
+                    }
+                });
+            }
+            
             onProgress?.(task);
         });
     },

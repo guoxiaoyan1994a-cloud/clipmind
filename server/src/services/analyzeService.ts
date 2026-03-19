@@ -85,6 +85,7 @@ export class AnalyzeService {
      */
     private async analyzeWithDoubao(taskId: string, videoUrl: string): Promise<void> {
         let finalVideoUrl = videoUrl;
+        let currentResult: any = {};
 
         // 阶段 0/4：解析短链接/提取直链（针对抖音等）
         if (videoUrl.includes('douyin.com')) {
@@ -100,45 +101,85 @@ export class AnalyzeService {
             }
         }
 
-        // 阶段 1/4：提取音频与台词（模拟）
-        await taskRepository.updateStatus(taskId, {
-            status: 'processing',
-            progress: 20,
-        });
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // 阶段 2/4：分析视觉风格与卡点（模拟）
-        await taskRepository.updateStatus(taskId, {
-            status: 'processing',
-            progress: 50,
-        });
-
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // 阶段 3/4：调用豆包大模型生成爆款公式
-        await taskRepository.updateStatus(taskId, {
-            status: 'processing',
-            progress: 80,
-        });
-
         try {
-            const hitFormula = await doubaoService.analyzeHitVideo(finalVideoUrl);
+            // 如果未配置 API Key，直接走 Mock 流程（但也要分步以展示效果）
+            if (!process.env.ARK_API_KEY) {
+                console.warn('⚠️ ARK_API_KEY 未配置，执行分步 Mock 分析流程');
+                
+                // 模拟音频解析
+                await taskRepository.updateStatus(taskId, { status: 'processing', progress: 20 });
+                await new Promise(r => setTimeout(r, 1000));
+                currentResult = {
+                    background_music: "轻快活泼的夏日电子节奏 (Mock)",
+                    sound_effects: "转场Swish音效、系统提示金币掉落音 (Mock)"
+                };
+                await taskRepository.updateStatus(taskId, { status: 'processing', progress: 40, result: currentResult });
 
-            // 成功后，将从大模型获取到的全量公式（六要素+翻拍分镜）存入 task result 中
+                // 模拟视觉解析
+                await taskRepository.updateStatus(taskId, { status: 'processing', progress: 60 });
+                await new Promise(r => setTimeout(r, 1500));
+                currentResult = {
+                    ...currentResult,
+                    role_setting: "一个对生活充满好奇的探店达人形象 (Mock)",
+                    story_summary: "通过一次意外迷路，发现了巷子里不为人知的百年老店 (Mock)",
+                    subtitle_text: "大字号悬念体：这是我吃过最便宜的米其林... (Mock)",
+                    visual_style: "赛博朋克高对比度、快节奏剪辑 (Mock)",
+                    language_text: "亲切自然，带有一点惊喜与分享欲的语调 (Mock)"
+                };
+                await taskRepository.updateStatus(taskId, { status: 'processing', progress: 80, result: currentResult });
+
+                // 模拟生成
+                await new Promise(r => setTimeout(r, 1000));
+                await taskRepository.updateStatus(taskId, {
+                    status: 'completed',
+                    progress: 100,
+                    result: {
+                        ...currentResult,
+                        scenes: [
+                            { sceneIndex: 1, duration: 3, prompt: "【翻拍新脚本】中景：主角在办公桌前...", subtitle: "【翻拍新脚本】你是不是也遇到这种情况？" }
+                        ]
+                    },
+                });
+                return;
+            }
+
+            // 真实 API 分步流程
+            // 1. 抽帧
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 10 });
+            const ext = finalVideoUrl.split('?')[0].toLowerCase().split('.').pop();
+            const isImage = ext && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext);
+            let imagesToAnalyze: string[] = isImage ? [finalVideoUrl] : await doubaoService.extractFramesAndConvertToBase64(finalVideoUrl, 5);
+
+            // 2. 音频解析
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 20 });
+            const audioResult = await doubaoService.analyzeAudioTrack(imagesToAnalyze);
+            currentResult = { ...currentResult, ...audioResult };
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 40, result: currentResult });
+
+            // 3. 视觉解析
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 50 });
+            const visualResult = await doubaoService.analyzeVisualFrames(imagesToAnalyze);
+            currentResult = { ...currentResult, ...visualResult };
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 75, result: currentResult });
+
+            // 4. 生成分镜
+            await taskRepository.updateStatus(taskId, { status: 'processing', progress: 85 });
+            const finalScenes = await doubaoService.generateRemakeScenes(currentResult);
+
+            // 5. 完成
             await taskRepository.updateStatus(taskId, {
                 status: 'completed',
                 progress: 100,
                 result: {
-                    ...hitFormula, // 平铺 music, characters, plot 等
-                    scenes: hitFormula.scenes // 翻拍的新分镜
+                    ...currentResult,
+                    scenes: finalScenes
                 },
             });
         } catch (err) {
             console.error('豆包大模型分析失败:', err);
             await taskRepository.updateStatus(taskId, {
                 status: 'failed',
-                error_message: '视频分析失败，请重试',
+                error_message: err instanceof Error ? err.message : '视频分析失败，请重试',
             });
         }
     }

@@ -54,17 +54,42 @@ export default function SmartVideoStep1() {
   useEffect(() => {
     if (currentProject && currentProject.result) {
       const res = currentProject.result as any;
-      setSections({
-        background_music: res.background_music || "暂无背景音乐分析",
-        sound_effects: res.sound_effects || "暂无音效分析",
-        role_setting: res.role_setting || "暂无角色设定",
-        story_summary: res.story_summary || "暂无故事梗概",
-        subtitle_text: res.subtitle_text || "暂无字幕风格",
-        visual_style: res.visual_style || "暂无画面风格描述",
-        language_text: res.language_text || "暂无配音文案分析"
-      });
+      setSections(prev => ({
+        ...prev,
+        background_music: res.background_music || prev.background_music,
+        sound_effects: res.sound_effects || prev.sound_effects,
+        role_setting: res.role_setting || prev.role_setting,
+        story_summary: res.story_summary || prev.story_summary,
+        subtitle_text: res.subtitle_text || prev.subtitle_text,
+        visual_style: res.visual_style || prev.visual_style,
+        language_text: res.language_text || prev.language_text
+      }));
     }
   }, [currentProject]);
+
+  // 渲染内容的辅助组件，处理加载状态
+  const renderContent = (id: keyof typeof sections) => {
+    const content = sections[id];
+    const isLoading = content === "提取中...";
+    
+    if (editingId === id) {
+      return (
+        <textarea 
+          autoFocus
+          className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
+          value={content}
+          onChange={(e) => updateSection(id, e.target.value)}
+          rows={3}
+        />
+      );
+    }
+    
+    return (
+      <p className={`mt-1 text-sm ${isLoading ? 'text-slate-400 animate-pulse italic' : 'text-slate-500 dark:text-slate-400'}`}>
+        {content}
+      </p>
+    );
+  };
 
   const handleModify = () => {
     navigate('/', { state: { url } });
@@ -130,17 +155,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'background_music' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.background_music}
-                  onChange={(e) => updateSection('background_music', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.background_music}</p>
-              )}
+              {renderContent('background_music')}
             </div>
           </div>
           
@@ -160,17 +175,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'sound_effects' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.sound_effects}
-                  onChange={(e) => updateSection('sound_effects', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.sound_effects}</p>
-              )}
+              {renderContent('sound_effects')}
             </div>
           </div>
           
@@ -190,17 +195,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'role_setting' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.role_setting}
-                  onChange={(e) => updateSection('role_setting', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.role_setting}</p>
-              )}
+              {renderContent('role_setting')}
             </div>
           </div>
           
@@ -220,17 +215,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'story_summary' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.story_summary}
-                  onChange={(e) => updateSection('story_summary', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.story_summary}</p>
-              )}
+              {renderContent('story_summary')}
             </div>
           </div>
 
@@ -250,17 +235,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'subtitle_text' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.subtitle_text}
-                  onChange={(e) => updateSection('subtitle_text', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.subtitle_text}</p>
-              )}
+              {renderContent('subtitle_text')}
             </div>
           </div>
 
@@ -280,17 +255,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'visual_style' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.visual_style}
-                  onChange={(e) => updateSection('visual_style', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.visual_style}</p>
-              )}
+              {renderContent('visual_style')}
             </div>
           </div>
 
@@ -310,17 +275,7 @@ export default function SmartVideoStep1() {
                   </button>
                 )}
               </div>
-              {editingId === 'language_text' ? (
-                <textarea 
-                  autoFocus
-                  className="mt-2 w-full rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-1 focus:ring-primary/30"
-                  value={sections.language_text}
-                  onChange={(e) => updateSection('language_text', e.target.value)}
-                  rows={3}
-                />
-              ) : (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sections.language_text}</p>
-              )}
+              {renderContent('language_text')}
             </div>
           </div>
         </div>
