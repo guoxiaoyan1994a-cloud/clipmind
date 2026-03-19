@@ -38,14 +38,12 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(responseMiddleware);
 
 // ─── API 路由 ──────────────────────────────────────────
-// 健康检查不需要认证，直接在路由聚合中处理
-// 除健康检查外，所有 /api 路由都需要认证
+// 健康检查和认证接口不需要权限校验
 app.use('/api', (req, res, next) => {
-    // 健康检查端点不需要认证
-    if (req.path === '/health') {
+    // 免校验路径：健康检查 和 登录注册接口
+    if (req.path === '/health' || req.path.startsWith('/auth/')) {
         return next();
     }
-    // 视频上传端点不一定需要严格认证（可根据需求调整）
     return authMiddleware(req, res, next);
 });
 
