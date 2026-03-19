@@ -11,6 +11,7 @@ import exportRoutes from './export.js';
 import generateRoutes from './generate.js';
 import projectsRoutes from './projects.js';
 import tasksRoutes from './tasks.js';
+import authRoutes from './auth.js';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.use('/', exportRoutes);
 router.use('/', generateRoutes);
 router.use('/', projectsRoutes);
 router.use('/', tasksRoutes);
+router.use('/auth', authRoutes);
 
 export default router;
 

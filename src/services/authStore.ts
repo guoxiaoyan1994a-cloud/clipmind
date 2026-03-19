@@ -39,75 +39,35 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
 
             /**
-             * 登录操作
-             * Supabase 已配置时使用真实认证，否则降级为模拟模式
+             * 登录操作：调用自定义后端 API
              */
             login: async (phone: string, password: string) => {
                 set({ isLoading: true });
 
                 try {
-                        // 特色：内置测试账号判断
-                        if (phone === 'admin' && password === 'admin888') {
-                            await new Promise((resolve) => setTimeout(resolve, 500));
-                            set({
-                                user: {
-                                    id: '00000000-0000-0000-0000-000000000000',
-                                    phone: 'admin',
-                                    name: '测试管理员',
-                                    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=ffdfbf',
-                                },
-                                token: 'mock-jwt-token-admin',
-                                isAuthenticated: true,
-                                isLoading: false,
-                            });
-                            return;
-                        }
+                    // 1. 调用自定义后端登录接口
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: phone, password }),
+                    });
 
-                    if (isSupabaseConfigured && supabase) {
-                        // 真实 Supabase Auth 登录（使用邮箱模式，phone 作为邮箱）
-                        const email = phone.includes('@') ? phone : `${phone}@clipmind.app`;
-                        const { data, error } = await supabase.auth.signInWithPassword({
-                            email,
-                            password,
-                        });
+                    const res = await response.json();
+                    if (!res.success) throw new Error(res.message || '登录失败');
 
-                        if (error) throw new Error(error.message);
+                    const { user, token } = res.data;
 
-                        const supaUser = data.user;
-                        const session = data.session;
-
-                        set({
-                            user: {
-                                id: supaUser.id,
-                                phone,
-                                name: supaUser.user_metadata?.name || '用户',
-                                avatar: supaUser.user_metadata?.avatar_url ||
-                                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${supaUser.id}&backgroundColor=ffdfbf`,
-                            },
-                            token: session?.access_token || null,
-                            isAuthenticated: true,
-                            isLoading: false,
-                        });
-                    } else {
-                        // 降级：模拟登录（未配置 Supabase 时使用）
-                        await new Promise((resolve) => setTimeout(resolve, 800));
-
-                        const mockUser: User = {
-                            id: 'user-' + Date.now(),
-                            phone,
-                            name: '陈小明',
-                            avatar:
-                                'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=ffdfbf',
-                        };
-                        const mockToken = 'mock-jwt-token-' + Date.now();
-
-                        set({
-                            user: mockUser,
-                            token: mockToken,
-                            isAuthenticated: true,
-                            isLoading: false,
-                        });
-                    }
+                    set({
+                        user: {
+                            id: user.id,
+                            phone: user.username,
+                            name: user.name,
+                            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}&backgroundColor=ffdfbf`,
+                        },
+                        token,
+                        isAuthenticated: true,
+                        isLoading: false,
+                    });
                 } catch (err) {
                     set({ isLoading: false });
                     throw err;
@@ -115,64 +75,35 @@ export const useAuthStore = create<AuthState>()(
             },
 
             /**
-             * 注册操作
-             * Supabase 已配置时使用真实注册，否则降级为模拟模式
+             * 注册操作：调用自定义后端 API
              */
             register: async (phone: string, password: string) => {
                 set({ isLoading: true });
 
                 try {
-                    const email = phone.includes('@') ? phone : `${phone}@clipmind.app`;
-                    if (isSupabaseConfigured && supabase) {
-                        // 真实 Supabase Auth 注册
-                        const { data, error } = await supabase.auth.signUp({
-                            email,
-                            password,
-                            options: {
-                                data: {
-                                    name: '新用户',
-                                    phone,
-                                },
-                            },
-                        });
+                    // 1. 调用自定义后端注册接口
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: phone, password }),
+                    });
 
-                        if (error) throw new Error(error.message);
+                    const res = await response.json();
+                    if (!res.success) throw new Error(res.message || '注册失败');
 
-                        const supaUser = data.user;
-                        const session = data.session;
+                    const { user, token } = res.data;
 
-                        set({
-                            user: {
-                                id: supaUser?.id || '',
-                                phone,
-                                name: '新用户',
-                                avatar:
-                                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${supaUser?.id || 'new'}&backgroundColor=b6e3f4`,
-                            },
-                            token: session?.access_token || null,
-                            isAuthenticated: !!session,
-                            isLoading: false,
-                        });
-                    } else {
-                        // 降级：模拟注册
-                        await new Promise((resolve) => setTimeout(resolve, 800));
-
-                        const mockUser: User = {
-                            id: 'user-' + Date.now(),
-                            phone,
-                            name: '新用户',
-                            avatar:
-                                'https://api.dicebear.com/7.x/avataaars/svg?seed=NewUser&backgroundColor=b6e3f4',
-                        };
-                        const mockToken = 'mock-jwt-token-' + Date.now();
-
-                        set({
-                            user: mockUser,
-                            token: mockToken,
-                            isAuthenticated: true,
-                            isLoading: false,
-                        });
-                    }
+                    set({
+                        user: {
+                            id: user.id,
+                            phone: user.username,
+                            name: user.name,
+                            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}&backgroundColor=b6e3f4`,
+                        },
+                        token,
+                        isAuthenticated: true,
+                        isLoading: false,
+                    });
                 } catch (err) {
                     set({ isLoading: false });
                     throw err;

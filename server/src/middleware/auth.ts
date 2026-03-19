@@ -5,7 +5,10 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabase.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'clipmind-secret-key-2026';
 
 export async function authMiddleware(
     req: Request,
@@ -19,41 +22,51 @@ export async function authMiddleware(
             res.status(401).json({
                 success: false,
                 data: null,
-                message: '缺少认证凭据，请在 Authorization Header 中提供 Bearer Token',
+                message: '缺少认证凭据',
             });
             return;
         }
 
         const token = authHeader.replace('Bearer ', '');
 
-        // 兼容降级模式：如果未配置 Supabase 或接收到前端的模拟 token，直接放行
-        const isSupabaseConfigured = !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
-        if (!isSupabaseConfigured || token.startsWith('mock-jwt-token')) {
+        // 1. 兼容内置 Mock Token
+        if (token.startsWith('mock-jwt-token')) {
             req.userId = '00000000-0000-0000-0000-000000000000';
-            next();
-            return;
+            return next();
         }
 
-        // 使用 Supabase 验证 JWT Token 并获取用户信息
-        const { data, error } = await supabase.auth.getUser(token);
-
-        if (error || !data.user) {
-            res.status(401).json({
-                success: false,
-                data: null,
-                message: '认证失败：无效或过期的 Token',
-            });
-            return;
+        // 2. 尝试验证自定义 JWT (Simple Auth)
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+            if (decoded && decoded.userId) {
+                req.userId = decoded.userId;
+                return next();
+            }
+        } catch (jwtErr) {
+            // JWT 验证失败，可能是 Supabase Token，继续尝试下一种方式
         }
 
-        // 将用户 ID 注入请求对象
-        req.userId = data.user.id;
-        next();
+        // 3. 回退：尝试 Supabase 原生验证 (兼容存量活跃用户)
+        const isSupabaseConfigured = !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
+        if (isSupabaseConfigured) {
+            const { data, error } = await supabase.auth.getUser(token);
+            if (!error && data.user) {
+                req.userId = data.user.id;
+                return next();
+            }
+        }
+
+        res.status(401).json({
+            success: false,
+            data: null,
+            message: '认证失败：无效或过期的 Token',
+        });
     } catch (err) {
+        console.error('Auth Middleware Error:', err);
         res.status(500).json({
             success: false,
             data: null,
-            message: '认证过程中发生内部错误',
+            message: '认证异常',
         });
     }
 }
