@@ -122,9 +122,9 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
+                    const email = phone.includes('@') ? phone : `${phone}@clipmind.app`;
                     if (isSupabaseConfigured && supabase) {
                         // 真实 Supabase Auth 注册
-                        const email = phone.includes('@') ? phone : `${phone}@clipmind.app`;
                         const { data, error } = await supabase.auth.signUp({
                             email,
                             password,

@@ -6,36 +6,15 @@ export default function Register() {
   const navigate = useNavigate();
   const { register, isLoading } = useAuthStore();
   const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
 
-  /** 发送验证码（模拟） */
-  const handleSendCode = () => {
-    if (!phone.trim()) {
-      setError('请输入手机号');
-      return;
-    }
-    setCodeSent(true);
-    setCountdown(60);
-    // 倒计时
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
 
   /** 提交注册 */
   const handleRegister = async () => {
-    if (!phone.trim() || !code.trim()) {
-      setError('请填写手机号和验证码');
+    if (!phone.trim() || !password.trim()) {
+      setError('请填写手机号和密码');
       return;
     }
     if (!agreed) {
@@ -44,7 +23,7 @@ export default function Register() {
     }
     setError('');
     try {
-      await register(phone, code);
+      await register(phone, password);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败，请重试');
@@ -89,23 +68,15 @@ export default function Register() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium px-1 text-slate-600">验证码</label>
+          <label className="text-sm font-medium px-1 text-slate-600">密码</label>
           <div className="relative flex items-center">
             <input
               className="w-full border rounded-xl h-[56px] px-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400"
-              placeholder="请输入验证码"
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              placeholder="请输入密码"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
-            <button
-              onClick={handleSendCode}
-              disabled={countdown > 0}
-              className={`absolute right-4 font-medium text-sm transition-colors ${countdown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-primary hover:text-primary/80'
-                }`}
-            >
-              {countdown > 0 ? `${countdown}s 后重发` : codeSent ? '重新发送' : '获取验证码'}
-            </button>
           </div>
         </div>
 
