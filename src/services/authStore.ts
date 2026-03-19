@@ -46,6 +46,23 @@ export const useAuthStore = create<AuthState>()(
                 set({ isLoading: true });
 
                 try {
+                        // 特色：内置测试账号判断
+                        if (phone === 'admin' && password === 'admin888') {
+                            await new Promise((resolve) => setTimeout(resolve, 500));
+                            set({
+                                user: {
+                                    id: '00000000-0000-0000-0000-000000000000',
+                                    phone: 'admin',
+                                    name: '测试管理员',
+                                    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=ffdfbf',
+                                },
+                                token: 'mock-jwt-token-admin',
+                                isAuthenticated: true,
+                                isLoading: false,
+                            });
+                            return;
+                        }
+
                     if (isSupabaseConfigured && supabase) {
                         // 真实 Supabase Auth 登录（使用邮箱模式，phone 作为邮箱）
                         const email = phone.includes('@') ? phone : `${phone}@clipmind.app`;
